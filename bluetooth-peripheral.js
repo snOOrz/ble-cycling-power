@@ -5,6 +5,7 @@ var BluetoothPeripheral = function(name) {
   process.env['BLENO_DEVICE_NAME'] = name;
   this.primaryService = new CyclingPowerService();
   this.last_timestamp = 0;
+  this.distance = 0;
   this.rev_count = 0;
   var self = this;
 
@@ -38,6 +39,11 @@ var BluetoothPeripheral = function(name) {
       if ('rev_count' in event) {
         self.rev_count = event.rev_count;
       }
+
+      if ('dist' in event) {
+        self.distance = event.dist;
+      }
+
       self.last_timestamp = Date.now();
     }
   };
@@ -48,6 +54,7 @@ var BluetoothPeripheral = function(name) {
     if (Date.now() - self.last_timestamp > TIMEOUT) {
       self.notify({'heart_rate': 0,
                    'watts': 0,
+                   'dist' : self.distance,
                    'rev_count': self.rev_count})
     }
     setTimeout(ping, TIMEOUT);

@@ -49,7 +49,7 @@ CyclingPowerMeasurementCharacteristic.prototype.notify = function(event) {
     // ignore events with no power and no crank data
     return;
   }
-  var buffer = new Buffer(8);
+  var buffer = new Buffer(14);
   // flags
   // 00000001 - 1   - 0x001 - Pedal Power Balance Present
   // 00000010 - 2   - 0x002 - Pedal Power Balance Reference
@@ -59,24 +59,30 @@ CyclingPowerMeasurementCharacteristic.prototype.notify = function(event) {
   // 00100000 - 32  - 0x020 - Crank Revolution Data Present
   // 01000000 - 64  - 0x040 - Extreme Force Magnitudes Present
   // 10000000 - 128 - 0x080 - Extreme Torque Magnitudes Present
-  buffer.writeUInt16LE(0x020, 0);
+  buffer.writeUInt16LE(0x030, 0);
 
-  if ('watts' in event) {
-    var watts = event.watts;
-    debug("power: " + watts);
-    buffer.writeInt16LE(watts, 2);
-  }
+  var watts = ('watts' in event) ? event.watts : 0;
+  debug("power: " + watts);
+  buffer.writeInt16LE(watts, 2);
 
-  if ('rev_count' in event) {
-    debug("rev_count: " + event.rev_count);
-    buffer.writeUInt16LE(event.rev_count, 4);
+  var wheel_rev = ('dist' in event) ? event.dist : 0;
+  debug("wheel revolution: " + wheel_rev);
+  buffer.writeUInt32LE(wheel_rev, 4);
 
-    var now = Date.now();
-    var now_1024 = Math.floor(now*1e3/1024);
-    var event_time = now_1024 % 65536; // rolls over every 64 seconds
-    debug("event time: " + event_time);
-    buffer.writeUInt16LE(event_time, 6);
-  }
+  var now = Date.now();
+  var now_2048 = Math.floor(now * 2048 / 1e3);
+  var wheel_event_time = now_2048 % 65536; // rolls over every 32 seconds
+  debug("wheel event time: " + wheel_event_time);
+  buffer.writeUInt16LE(wheel_event_time, 8);
+
+  var rev_count = ('rev_count' in event) ? event.rev_count : 0;
+  debug("crank revolution: " + rev_count);
+  buffer.writeUInt16LE(rev_count, 10);
+
+  var now_1024 = Math.floor(now * 1024 / 1e3);
+  var crank_event_time = now_1024 % 65536; // rolls over every 64 seconds
+  debug("crank event time: " + crank_event_time);
+  buffer.writeUInt16LE(crank_event_time, 12);
 
   if (this._updateValueCallback) {
     this._updateValueCallback(buffer);
