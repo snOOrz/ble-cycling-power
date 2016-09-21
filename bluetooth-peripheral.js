@@ -1,9 +1,11 @@
-var BluetoothPeripheral = function(name) {
+var BluetoothPeripheral = function(name, hr_enabled) {
   var bleno = require('bleno');
   var CyclingPowerService = require('./cycling-power-service');
+  var HrmService = require('./hrm-service');
   var debug = require('debug')('ble');
   process.env['BLENO_DEVICE_NAME'] = name;
   this.primaryService = new CyclingPowerService();
+  this.hrmService = new HrmService();
   this.last_timestamp = 0;
   this.distance = 0;
   this.rev_count = 0;
@@ -14,7 +16,7 @@ var BluetoothPeripheral = function(name) {
 
     if (state === 'poweredOn') {
       bleno.startAdvertising(process.env['BLENO_DEVICE_NAME'],
-        [self.primaryService.uuid]);
+        hr_enabled ? [self.primaryService.uuid, self.hrmService.uuid] : [self.primaryService.uuid]);
     } else {
       bleno.stopAdvertising();
     }
@@ -24,7 +26,7 @@ var BluetoothPeripheral = function(name) {
     debug('advertisingStart: ' + (error ? 'error ' + error : 'success'));
 
     if (!error) {
-      bleno.setServices([self.primaryService], function(error){
+      bleno.setServices(hr_enabled ? [self.primaryService, self.hrmService] : [self.primaryService], function(error){
         debug('setServices: '  + (error ? 'error ' + error : 'success'));
       });
     }
@@ -33,6 +35,9 @@ var BluetoothPeripheral = function(name) {
   this.notify = function(event) {
     debug("[BLE] " + JSON.stringify(event));
     self.primaryService.notify(event);
+    if (hr_enabled) {
+      self.hrmService.notify(event);
+    }
     if (!('watts' in event) && !('heart_rate' in event)) {
       debug("unrecognized event: %j", event);
     } else {
